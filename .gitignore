@@ -1,7 +1,7 @@
 /venv
 /output
 /config.py
-/__pycache__/
+__pycache__
 /tests
 
 \book_url.cache

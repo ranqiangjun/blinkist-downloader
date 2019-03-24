@@ -1,5 +1,5 @@
 from bs4 import BeautifulSoup
-from urls import book_urls, category_urls
+from src.urls import book_urls, category_urls
 from multiprocessing.pool import ThreadPool
 import pickle
 import os
@@ -14,7 +14,7 @@ class BookUrlExtractor:
         self.data = self.__get_data()
 
     def __get_data(self):
-        cache_file_name = 'book_url.cache'
+        cache_file_name = '.book.cache'
         if os.path.exists(cache_file_name):
             print("Cache exists")
             f = open(cache_file_name, 'rb')

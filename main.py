@@ -1,9 +1,9 @@
 # -*- coding: UTF-8 -*-
 
 import requests
-from login import *
-from extractor import BookUrlExtractor
-from downloader import *
+from src.login import *
+from src.extractor import BookUrlExtractor
+from src.downloader import *
 
 s = requests.Session()
 log_me_in = Login(s)

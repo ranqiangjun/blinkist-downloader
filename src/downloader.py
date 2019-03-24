@@ -1,7 +1,7 @@
 import pathlib
 # import os
-from extractor import IntroPageExtractor, ListenPageExtractor
-from lock import *
+from src.extractor import IntroPageExtractor, ListenPageExtractor
+from src.lock import *
 from config import output_dir
 from multiprocessing.pool import ThreadPool
 

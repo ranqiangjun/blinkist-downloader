@@ -1,5 +1,5 @@
 from bs4 import BeautifulSoup
-from urls import login_urls
+from src.urls import login_urls
 from config import email, password
 
 
