@@ -12,11 +12,6 @@ class Downloader:
 
     def download_file(self, file_path, url):
         os.system('wget "' + url + '" -O "' + file_path + '"')
-        # r = self.s.get(url, stream=True)
-        # with open(file_path, 'wb') as f:
-        #     for chunk in r.iter_content(chunk_size=1024):
-        #         if chunk:
-        #             f.write(chunk)
 
     @staticmethod
     def write_file(file_path, content):

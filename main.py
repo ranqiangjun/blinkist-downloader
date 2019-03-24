@@ -16,8 +16,8 @@ listen_pages = bue.get_listen_pages()
 
 
 downloader = Downloader(s)
-# ipd = IntroPagesDownloader(s, intro_pages, downloader)
-# ipd.download()
+ipd = IntroPagesDownloader(s, intro_pages, downloader)
+ipd.download()
 
 lpd = ListenPagesDownloader(s, listen_pages, downloader)
 lpd.download()
