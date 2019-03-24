@@ -3,6 +3,7 @@ import os
 from extractor import IntroPageExtractor, ListenPageExtractor
 from lock import *
 from config import output_dir
+from multiprocessing.pool import ThreadPool
 
 
 class Downloader:
@@ -10,8 +11,15 @@ class Downloader:
     def __init__(self, s):
         self.s = s
 
-    def download_file(self, file_path, url):
-        os.system('wget "' + url + '" -O "' + file_path + '"')
+    def download_file(self, item):
+        file_path, url = item
+        r = self.s.get(url, stream=True)
+        with open(file_path, 'wb') as f:
+            for chunk in r.iter_content(chunk_size=1024):
+                if chunk:
+                    f.write(chunk)
+        # os.system('wget "' + url + '" -O "' + file_path + '"')
+        return file_path
 
     @staticmethod
     def write_file(file_path, content):
@@ -94,9 +102,7 @@ class ListenPagesDownloader:
                 lpe = ListenPageExtractor(self.s, url)
                 self.__save_html(book_output_dir, lpe.get_html_data())
                 self.__save_html_per_chapter(book_output_dir, lpe.get_html_data_per_chapter())
-                self.__save_audio(book_output_dir, lpe.get_audio_items())
-                lock.lock()
-                print( book_output_dir + " locked")
+                self.__save_audio(book_output_dir, lpe.get_audio_items(), lock)
             else:
                 print( book_output_dir + " skipped")
 
@@ -110,8 +116,15 @@ class ListenPagesDownloader:
             file_path = '/'.join([book_output_dir, file_name])
             self.downloader.write_file(file_path, content)
 
-    def __save_audio(self, book_output_dir, items):
+    def __save_audio(self, book_output_dir, items, lock):
+        audio_items = []
         for item in items:
             file_name, audio_url = item
             file_path = '/'.join([book_output_dir, file_name])
-            self.downloader.download_file(file_path, audio_url)
+            audio_items.append((file_path, audio_url))
+        number = len(audio_items)
+        result = ThreadPool(number).imap_unordered(self.downloader.download_file, audio_items)
+        for i in result:
+            print(i + " downloaded")
+        lock.lock()
+        print( book_output_dir + " locked")
