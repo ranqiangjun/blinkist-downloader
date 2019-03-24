@@ -1,5 +1,6 @@
 from bs4 import BeautifulSoup
 from urls import book_urls, category_urls
+from multiprocessing.pool import ThreadPool
 
 
 class BookUrlExtractor:
@@ -134,7 +135,9 @@ class ListenPageExtractor:
     def __get_csrf_token(self):
         return self.soup.select('meta[name="csrf-token"]')[0]['content']
 
-    def __get_audio_url(self, audio_endpoint):
+    def __get_audio_url(self, item):
+        chapter_number, audio_endpoint = item
+        file_name = str(chapter_number) + '.m4a'
         csrf_token = self.__get_csrf_token()
         user_agent = [
             'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_2)',
@@ -150,19 +153,21 @@ class ListenPageExtractor:
         }
         r = self.s.get(audio_endpoint, headers=headers)
         j = r.json()
-        return j['url']
+        return file_name, j['url']
 
     def get_audio_items(self):
-        data = []
         book_id = self.__get_id()
+        items = []
         for chapter in self.__get_chapter_data():
             chapter_id, chapter_number = chapter
             audio_endpoint = book_urls['audio_api_prefix'] + book_id + '/chapters/' + chapter_id + '/audio'
-            audio_url = self.__get_audio_url(audio_endpoint)
-            chapter_number = int(chapter_number) + 1
-            file_name = str(chapter_number) + '.m4a'
-            data.append((file_name, audio_url))
-        return data
+            items.append((chapter_number, audio_endpoint))
+        number = len(items)
+        result = ThreadPool(number).imap_unordered(self.__get_audio_url, items)
+        audio_items = []
+        for audio_item in result:
+            audio_items.append(audio_item)
+        return audio_items
 
     def get_html_data(self):
         content = ''
