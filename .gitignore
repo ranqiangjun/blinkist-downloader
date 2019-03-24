@@ -1,0 +1,6 @@
+/venv
+/output
+/config.py
+/__pycache__/
+/tests
+
