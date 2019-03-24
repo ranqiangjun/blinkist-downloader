@@ -1,6 +1,8 @@
 from bs4 import BeautifulSoup
 from urls import book_urls, category_urls
 from multiprocessing.pool import ThreadPool
+import pickle
+import os
 
 
 class BookUrlExtractor:
@@ -12,6 +14,11 @@ class BookUrlExtractor:
         self.data = self.__get_data()
 
     def __get_data(self):
+        cache_file_name = 'book_url.cache'
+        if os.path.exists(cache_file_name):
+            print("Cache exists")
+            f = open(cache_file_name, 'rb')
+            return pickle.load(f)
         items = []
         names = []
         for url in self.urls:
@@ -25,6 +32,8 @@ class BookUrlExtractor:
                 if name not in names:
                     names.append(name)
                     items.append((category, name))
+        f = open(cache_file_name, 'wb')
+        pickle.dump(items, f)
         return items
 
     @staticmethod
@@ -163,10 +172,12 @@ class ListenPageExtractor:
             audio_endpoint = book_urls['audio_api_prefix'] + book_id + '/chapters/' + chapter_id + '/audio'
             items.append((chapter_number, audio_endpoint))
         number = len(items)
-        result = ThreadPool(number).imap_unordered(self.__get_audio_url, items)
+        tp = ThreadPool(number)
+        result = tp.imap_unordered(self.__get_audio_url, items)
         audio_items = []
         for audio_item in result:
             audio_items.append(audio_item)
+        tp.terminate()
         return audio_items
 
     def get_html_data(self):
@@ -180,7 +191,6 @@ class ListenPageExtractor:
         for chapter in self.soup.select('.chapter.chapter'):
             content = chapter.prettify()
             chapter_number = chapter['data-chapterno']
-            chapter_number = int(chapter_number) + 1
-            file_name = str(chapter_number) + '.html'
+            file_name = chapter_number + '.html'
             data.append((file_name, content))
         return data

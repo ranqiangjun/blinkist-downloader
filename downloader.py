@@ -1,5 +1,5 @@
 import pathlib
-import os
+# import os
 from extractor import IntroPageExtractor, ListenPageExtractor
 from lock import *
 from config import output_dir
@@ -46,22 +46,32 @@ class IntroPagesDownloader:
             book_output_dir = "/".join([output_dir, category, name])
             self.__prepare_dir(book_output_dir)
             lock = Lock(book_output_dir)
-            if not lock.is_locked():
+            if not lock.is_intro_locked():
                 ipe = IntroPageExtractor(self.s, url)
                 self.save_cover_images(book_output_dir, ipe.get_cover_images())
                 self.save_meta(book_output_dir, ipe.get_meta())
                 self.save_description(book_output_dir, ipe.get_description())
                 if not ipe.is_audio_available():
-                    lock.lock()
+                    lock.lock_audio()
                     self.save_no_audio_note(book_output_dir)
                     print(book_output_dir + " No audio, locked")
+                lock.lock_intro()
             else:
                 print(book_output_dir + " skipped")
 
     def save_cover_images(self, book_output_dir, data):
         url1, url2 = data
-        self.downloader.download_file('/'.join([book_output_dir, '470.jpg']), url1)
-        self.downloader.download_file('/'.join([book_output_dir, '250.jpg']), url2)
+
+        items = [
+            ('/'.join([book_output_dir, '470.jpg']), url1),
+            ('/'.join([book_output_dir, '250.jpg']), url2)
+        ]
+
+        tp = ThreadPool(2)
+        result = tp.imap_unordered(self.downloader.download_file, items)
+        for i in result:
+            print(i + " downloaded")
+        tp.terminate()
 
     def save_meta(self, book_output_dir, data):
         title, subtitle, author, time_to_read = data
@@ -98,7 +108,7 @@ class ListenPagesDownloader:
             book_output_dir = "/".join([output_dir, category, name])
             self.__prepare_dir(book_output_dir)
             lock = Lock(book_output_dir)
-            if not lock.is_locked():
+            if not lock.is_audio_locked():
                 lpe = ListenPageExtractor(self.s, url)
                 self.__save_html(book_output_dir, lpe.get_html_data())
                 self.__save_html_per_chapter(book_output_dir, lpe.get_html_data_per_chapter())
@@ -123,8 +133,10 @@ class ListenPagesDownloader:
             file_path = '/'.join([book_output_dir, file_name])
             audio_items.append((file_path, audio_url))
         number = len(audio_items)
-        result = ThreadPool(number).imap_unordered(self.downloader.download_file, audio_items)
+        tp = ThreadPool(number)
+        result = tp.imap_unordered(self.downloader.download_file, audio_items)
         for i in result:
             print(i + " downloaded")
-        lock.lock()
+        tp.terminate()
+        lock.lock_audio()
         print( book_output_dir + " locked")
