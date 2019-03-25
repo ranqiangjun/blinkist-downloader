@@ -19,26 +19,35 @@ class BookUrlExtractor:
             f = open(cache_file_name, 'rb')
             return pickle.load(f)
         items = []
-        names = []
-        for url in self.urls:
-            r = self.s.get(url)
+        book_names = []
+        for category_url in self.urls:
+            r = self.s.get(category_url)
             soup = BeautifulSoup(r.text, 'html.parser')
-            category = self.__get_category(url)
+            category = self.__get_category(category_url)
             print("Category: " + category)
             for item in self.__get_books(soup):
-                url = item['href']
-                name = url.split('/')[-1]
-                if name not in names:
-                    names.append(name)
-                    items.append((category, name))
+                book_url = item['href']
+                book_name = self.__get_book_name(book_url)
+                if book_name not in book_names:
+                    book_names.append(book_name)
+                    items.append((category, book_name))
         f = open(cache_file_name, 'wb')
         pickle.dump(items, f)
         return items
 
     @staticmethod
-    def __get_category(url):
+    def __get_category(category_url):
         # Get the 2nd last part.
-        name = url.split('/')[-2]
+        name = category_url.split('/')[-2]
+        parts = name.split('-')
+        # Remove -en.
+        parts.pop()
+        return '-'.join(parts)
+
+    @staticmethod
+    def __get_book_name(book_url):
+        # Get the last part.
+        name = book_url.split('/')[-1]
         parts = name.split('-')
         # Remove -en.
         parts.pop()
