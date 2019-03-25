@@ -41,13 +41,13 @@ class IntroPagesDownloader:
 
     def download(self):
         for item in self.items:
-            category, name, url = item
-            print("Start downloading intro page: " + url)
-            book_output_dir = "/".join([output_dir, category, name])
+            category, book_name_no_tail, book_url = item
+            print("Start downloading intro page: " + book_url)
+            book_output_dir = "/".join([output_dir, category, book_name_no_tail])
             self.__prepare_dir(book_output_dir)
             lock = Lock(book_output_dir)
             if not lock.is_intro_locked():
-                ipe = IntroPageExtractor(self.s, url)
+                ipe = IntroPageExtractor(self.s, book_url)
                 self.save_cover_images(book_output_dir, ipe.get_cover_images())
                 self.save_meta(book_output_dir, ipe.get_meta())
                 self.save_description(book_output_dir, ipe.get_description())
@@ -75,20 +75,20 @@ class IntroPagesDownloader:
 
     def save_meta(self, book_output_dir, data):
         title, subtitle, author, time_to_read = data
-        self.downloader.write_file('/'.join([book_output_dir, 'title.txt']), title)
-        self.downloader.write_file('/'.join([book_output_dir, 'subtitle.txt']), subtitle)
-        self.downloader.write_file('/'.join([book_output_dir, 'author.txt']), author)
-        self.downloader.write_file('/'.join([book_output_dir, 'time_to_read.txt']), time_to_read)
+        self.downloader.write_file('/'.join([book_output_dir, 'title.md']), title)
+        self.downloader.write_file('/'.join([book_output_dir, 'subtitle.md']), subtitle)
+        self.downloader.write_file('/'.join([book_output_dir, 'author.md']), author)
+        self.downloader.write_file('/'.join([book_output_dir, 'time_to_read.md']), time_to_read)
 
     def save_description(self, book_output_dir, data):
         summary, for_who, about_author = data
-        self.downloader.write_file('/'.join([book_output_dir, 'summary.txt']), summary)
-        self.downloader.write_file('/'.join([book_output_dir, 'for_who.txt']), for_who)
-        self.downloader.write_file('/'.join([book_output_dir, 'about_author.txt']), about_author)
+        self.downloader.write_file('/'.join([book_output_dir, 'summary.md']), summary)
+        self.downloader.write_file('/'.join([book_output_dir, 'for_who.md']), for_who)
+        self.downloader.write_file('/'.join([book_output_dir, 'about_author.md']), about_author)
 
     def save_no_audio_note(self, book_output_dir):
         now = datetime.datetime.now()
-        self.downloader.write_file('/'.join([book_output_dir, 'no_audio.txt']), now.strftime("%Y-%m-%d %H:%M"))
+        self.downloader.write_file('/'.join([book_output_dir, 'no_audio.md']), now.strftime("%Y-%m-%d %H:%M"))
 
 
 class ListenPagesDownloader:
@@ -103,9 +103,9 @@ class ListenPagesDownloader:
 
     def download(self):
         for item in self.items:
-            category, name, url = item
-            print("Start downloading listen page: " + url)
-            book_output_dir = "/".join([output_dir, category, name])
+            category, book_name_no_tail, book_url = item
+            print("Start downloading listen page: " + book_url)
+            book_output_dir = "/".join([output_dir, category, book_name_no_tail])
             self.__prepare_dir(book_output_dir)
 
             lock = Lock(book_output_dir)
@@ -116,7 +116,7 @@ class ListenPagesDownloader:
             if is_audio_locked and is_markup_locked:
                 print( book_output_dir + " skipped")
             else:
-                lpe = ListenPageExtractor(self.s, url)
+                lpe = ListenPageExtractor(self.s, book_url)
                 if not is_audio_locked:
                     self.__save_audio(book_output_dir, lpe.get_audio_items(), lock)
                     lock.lock_audio()

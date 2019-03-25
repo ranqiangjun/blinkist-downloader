@@ -27,10 +27,10 @@ class BookUrlExtractor:
         data = []
         for book_items in result:
             for book_item in book_items:
-                category, book_name, book_name_has_tail_en = book_item
+                category, book_name, book_name_no_tail_en = book_item
                 if book_name not in tmp_book_names:
                     tmp_book_names.append(book_name)
-                    data.append((category, book_name, book_name_has_tail_en))
+                    data.append((category, book_name, book_name_no_tail_en))
         tp.terminate()
         # Write cache.
         f = open(cache_file_name, 'wb')
@@ -46,8 +46,8 @@ class BookUrlExtractor:
         for item in self.__get_books(soup):
             book_url = item['href']
             book_name = self.__get_book_name(book_url)
-            book_name_has_tail_en = self.__remove_tail_en_from_name(book_name)
-            items.append((category, book_name, book_name_has_tail_en))
+            book_name_no_tail_en = self.__remove_tail_en_from_name(book_name)
+            items.append((category, book_name, book_name_no_tail_en))
         return items
 
     def __get_category(self, category_url):
@@ -63,9 +63,11 @@ class BookUrlExtractor:
     @staticmethod
     def __remove_tail_en_from_name(name):
         parts = name.split('-')
-        # Remove -en.
-        parts.pop()
-        return '-'.join(parts)
+        # Remove en.
+        if parts[-1] == 'en':
+            parts.pop()
+            return '-'.join(parts)
+        return name
 
     @staticmethod
     def __get_books(soup):
@@ -74,17 +76,17 @@ class BookUrlExtractor:
     def get_intro_pages(self):
         items = []
         for item in self.data:
-            category, book_name, book_name_has_tail_en = item
-            book_url = book_urls['intro_page_prefix'] + book_name_has_tail_en
-            items.append((category, book_name, book_url))
+            category, book_name, book_name_no_tail_en = item
+            book_url = book_urls['intro_page_prefix'] + book_name
+            items.append((category, book_name_no_tail_en, book_url))
         return items
 
     def get_listen_pages(self):
         items = []
         for item in self.data:
-            category, book_name, book_name_has_tail_en = item
-            book_url = book_urls['listen_page_prefix'] + book_name_has_tail_en
-            items.append((category, book_name, book_url))
+            category, book_name, book_name_no_tail_en = item
+            book_url = book_urls['listen_page_prefix'] + book_name
+            items.append((category, book_name_no_tail_en, book_url))
         return items
 
 
@@ -97,7 +99,7 @@ class IntroPageExtractor:
         self.url = intro_page_url
 
     def __get_author(self):
-        return self.soup.select('.book__header__author')[0].text.strip()
+        return self.soup.select('.book__header__author')[0].text.strip().replace('By ', '')
 
     def __get_title(self):
         return self.soup.select('.book__header__title')[0].text.strip()
@@ -106,22 +108,25 @@ class IntroPageExtractor:
         return self.soup.select('.book__header__subtitle')[0].text.strip()
 
     def __get_read_time(self):
-        return self.soup.select('.book__header__info-item-body')[0].text.strip()
+        return self.soup.select('.book__header__info-item-body')[0].text.strip().replace(' read', '')
 
     def __get_synopsis(self):
         node = self.soup.select('div[ref=synopsis]')[0]
-        del node['class']
-        return node.prettify().strip()
+        for tag in node.select('div'):
+            tag.replaceWithChildren()
+        return md(node).strip().replace('  *', ' *')
 
     def __get_who_should_read(self):
         node = self.soup.select('div[ref=who_should_read]')[0]
-        del node['class']
-        return node.prettify().strip()
+        for tag in node.select('div'):
+            tag.replaceWithChildren()
+        return md(node).replace('  *', ' *')
 
     def __get_about_the_author(self):
         node = self.soup.select('div[ref=about_the_author]')[0]
-        del node['class']
-        return node.prettify().strip()
+        for tag in node.select('div'):
+            tag.replaceWithChildren()
+        return md(node).strip().replace('  *', ' *')
 
     def get_meta(self):
         title = self.__get_title()
