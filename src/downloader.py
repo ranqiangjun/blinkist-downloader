@@ -107,14 +107,23 @@ class ListenPagesDownloader:
             print("Start downloading listen page: " + url)
             book_output_dir = "/".join([output_dir, category, name])
             self.__prepare_dir(book_output_dir)
+
             lock = Lock(book_output_dir)
-            if not lock.is_audio_locked():
-                lpe = ListenPageExtractor(self.s, url)
-                self.__save_html(book_output_dir, lpe.get_html_data())
-                self.__save_html_per_chapter(book_output_dir, lpe.get_html_data_per_chapter())
-                self.__save_audio(book_output_dir, lpe.get_audio_items(), lock)
-            else:
+
+            is_audio_locked = lock.is_audio_locked()
+            is_markup_locked = lock.is_markup_locked()
+
+            if is_audio_locked and is_markup_locked:
                 print( book_output_dir + " skipped")
+            else:
+                lpe = ListenPageExtractor(self.s, url)
+                if not is_audio_locked:
+                    self.__save_audio(book_output_dir, lpe.get_audio_items(), lock)
+                    lock.lock_audio()
+                if not is_markup_locked :
+                    self.__save_html(book_output_dir, lpe.get_html_data())
+                    self.__save_html_per_chapter(book_output_dir, lpe.get_html_data_per_chapter())
+                    lock.lock_markup()
 
     def __save_html(self, book_output_dir, content):
         file_path = '/'.join([book_output_dir, 'README.md'])
