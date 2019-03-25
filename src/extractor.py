@@ -8,7 +8,6 @@ import os
 class BookUrlExtractor:
 
     def __init__(self, s):
-        print("Init BookUrlExtractor")
         self.urls = category_urls
         self.s = s
         self.data = self.__get_data()
@@ -24,8 +23,8 @@ class BookUrlExtractor:
         for url in self.urls:
             r = self.s.get(url)
             soup = BeautifulSoup(r.text, 'html.parser')
-            category = self.__get_category(soup)
-            print("category: " + category)
+            category = self.__get_category(url)
+            print("Category: " + category)
             for item in self.__get_books(soup):
                 url = item['href']
                 name = url.split('/')[-1]
@@ -37,8 +36,13 @@ class BookUrlExtractor:
         return items
 
     @staticmethod
-    def __get_category(soup):
-        return soup.select('.book-list__header')[0].text.strip()
+    def __get_category(url):
+        # Get the 2nd last part.
+        name = url.split('/')[-2]
+        parts = name.split('-')
+        # Remove -en.
+        parts.pop()
+        return '-'.join(parts)
 
     @staticmethod
     def __get_books(soup):
