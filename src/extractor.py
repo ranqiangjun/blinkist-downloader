@@ -3,6 +3,7 @@ from src.urls import book_urls, category_urls
 from multiprocessing.pool import ThreadPool
 import pickle
 import os
+from markdownify import markdownify as md
 
 
 class BookUrlExtractor:
@@ -196,14 +197,18 @@ class ListenPageExtractor:
     def get_html_data(self):
         content = ''
         for chapter in self.soup.select('.chapter.chapter'):
+            for tag in chapter.select('div'):
+                tag.replaceWithChildren()
             content += chapter.prettify()
-        return content
+        return md(content)
 
     def get_html_data_per_chapter(self):
         data = []
         for chapter in self.soup.select('.chapter.chapter'):
-            content = chapter.prettify()
+            for tag in chapter.select('div'):
+                tag.replaceWithChildren()
+            content = md(chapter.prettify())
             chapter_number = chapter['data-chapterno']
-            file_name = chapter_number + '.html'
+            file_name = chapter_number + '.md'
             data.append((file_name, content))
         return data
