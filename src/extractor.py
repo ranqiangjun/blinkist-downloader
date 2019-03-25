@@ -27,10 +27,10 @@ class BookUrlExtractor:
         data = []
         for book_items in result:
             for book_item in book_items:
-                category, book_name = book_item
+                category, book_name, book_name_has_tail_en = book_item
                 if book_name not in tmp_book_names:
                     tmp_book_names.append(book_name)
-                    data.append((category, book_name))
+                    data.append((category, book_name, book_name_has_tail_en))
         tp.terminate()
         # Write cache.
         f = open(cache_file_name, 'wb')
@@ -46,22 +46,22 @@ class BookUrlExtractor:
         for item in self.__get_books(soup):
             book_url = item['href']
             book_name = self.__get_book_name(book_url)
-            items.append((category, book_name))
+            book_name_has_tail_en = self.__remove_tail_en_from_name(book_name)
+            items.append((category, book_name, book_name_has_tail_en))
         return items
 
-    @staticmethod
-    def __get_category(category_url):
+    def __get_category(self, category_url):
         # Get the 2nd last part.
         name = category_url.split('/')[-2]
-        parts = name.split('-')
-        # Remove -en.
-        parts.pop()
-        return '-'.join(parts)
+        return self.__remove_tail_en_from_name(name)
 
     @staticmethod
     def __get_book_name(book_url):
         # Get the last part.
-        name = book_url.split('/')[-1]
+        return book_url.split('/')[-1]
+
+    @staticmethod
+    def __remove_tail_en_from_name(name):
         parts = name.split('-')
         # Remove -en.
         parts.pop()
@@ -74,16 +74,16 @@ class BookUrlExtractor:
     def get_intro_pages(self):
         items = []
         for item in self.data:
-            category, book_name = item
-            book_url = book_urls['intro_page_prefix'] + book_name
+            category, book_name, book_name_has_tail_en = item
+            book_url = book_urls['intro_page_prefix'] + book_name_has_tail_en
             items.append((category, book_name, book_url))
         return items
 
     def get_listen_pages(self):
         items = []
         for item in self.data:
-            category, book_name = item
-            book_url = book_urls['listen_page_prefix'] + book_name
+            category, book_name, book_name_has_tail_en = item
+            book_url = book_urls['listen_page_prefix'] + book_name_has_tail_en
             items.append((category, book_name, book_url))
         return items
 
