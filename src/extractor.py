@@ -14,26 +14,39 @@ class BookUrlExtractor:
         self.data = self.__get_data()
 
     def __get_data(self):
+        # Read cache.
         cache_file_name = '.book.cache'
         if os.path.exists(cache_file_name):
             print("Cache exists")
             f = open(cache_file_name, 'rb')
             return pickle.load(f)
-        items = []
-        book_names = []
-        for category_url in self.urls:
-            r = self.s.get(category_url)
-            soup = BeautifulSoup(r.text, 'html.parser')
-            category = self.__get_category(category_url)
-            print("Category: " + category)
-            for item in self.__get_books(soup):
-                book_url = item['href']
-                book_name = self.__get_book_name(book_url)
-                if book_name not in book_names:
-                    book_names.append(book_name)
-                    items.append((category, book_name))
+        tmp_book_names = []
+        number = len(self.urls)
+        tp = ThreadPool(number)
+        result = tp.imap_unordered(self.__get_category_book_items, self.urls)
+        data = []
+        for book_items in result:
+            for book_item in book_items:
+                category, book_name = book_item
+                if book_name not in tmp_book_names:
+                    tmp_book_names.append(book_name)
+                    data.append((category, book_name))
+        tp.terminate()
+        # Write cache.
         f = open(cache_file_name, 'wb')
-        pickle.dump(items, f)
+        pickle.dump(data, f)
+        return data
+
+    def __get_category_book_items(self, category_url):
+        r = self.s.get(category_url)
+        soup = BeautifulSoup(r.text, 'html.parser')
+        category = self.__get_category(category_url)
+        print("Category: " + category)
+        items = []
+        for item in self.__get_books(soup):
+            book_url = item['href']
+            book_name = self.__get_book_name(book_url)
+            items.append((category, book_name))
         return items
 
     @staticmethod
@@ -61,17 +74,17 @@ class BookUrlExtractor:
     def get_intro_pages(self):
         items = []
         for item in self.data:
-            category, name = item
-            url = book_urls['intro_page_prefix'] + name
-            items.append((category, name, url))
+            category, book_name = item
+            book_url = book_urls['intro_page_prefix'] + book_name
+            items.append((category, book_name, book_url))
         return items
 
     def get_listen_pages(self):
         items = []
         for item in self.data:
-            category, name = item
-            url = book_urls['listen_page_prefix'] + name
-            items.append((category, name, url))
+            category, book_name = item
+            book_url = book_urls['listen_page_prefix'] + book_name
+            items.append((category, book_name, book_url))
         return items
 
 
