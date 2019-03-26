@@ -92,7 +92,14 @@ class BookUrlExtractor:
         return items
 
 
-class IntroPageExtractor:
+class Extractor:
+
+    @staticmethod
+    def html2md(html):
+        return pypandoc.convert_text(html, 'md', 'html')
+
+
+class IntroPageExtractor(Extractor):
 
     def __init__(self, s, intro_page_url):
         r = s.get(intro_page_url)
@@ -156,7 +163,7 @@ class IntroPageExtractor:
         return False
 
 
-class ListenPageExtractor:
+class ListenPageExtractor(Extractor):
 
     def __init__(self, s, listen_page_url):
         r = s.get(listen_page_url)
@@ -234,7 +241,7 @@ class ListenPageExtractor:
             tag.decompose()
         for h1 in chapters.select('h1'):
             h1.name = 'h3'
-        return pypandoc.convert_text(chapters, 'md', 'html')
+        return self.html2md(chapters)
 
     def get_html_data_per_chapter(self):
         data = []
@@ -244,7 +251,7 @@ class ListenPageExtractor:
                 h1.name = 'h3'
             for tag in chapter.select('div'):
                 tag.replaceWithChildren()
-            content = pypandoc.convert_text(chapter, 'md', 'html')
+            content = self.html2md(chapter)
             chapter_number = chapter['data-chapterno']
             file_name = chapter_number + '.md'
             data.append((file_name, content))
