@@ -1,9 +1,11 @@
 import pathlib
 # import os
+from requests import RequestException
 from src.extractor import IntroPageExtractor, ListenPageExtractor
 from src.lock import *
 from config import output_dir
 from multiprocessing.pool import ThreadPool
+from src.log import Log
 
 
 class Downloader:
@@ -40,24 +42,43 @@ class IntroPagesDownloader:
         pathlib.Path(dir_path).mkdir(parents=True, exist_ok=True)
 
     def download(self):
-        for item in self.items:
-            category, book_name_no_tail, book_url = item
-            print("Start downloading intro page: " + book_url)
-            book_output_dir = "/".join([output_dir, category, book_name_no_tail])
-            self.__prepare_dir(book_output_dir)
-            lock = Lock(book_output_dir)
-            if not lock.is_intro_locked():
+        tp = ThreadPool(100)
+        result = tp.imap_unordered(self.__worker, self.items)
+        for item in result:
+            ok, book_output_dir = item
+            if not ok:
+                l = Log()
+                l.write_error("Intro: " + book_output_dir + '\n')
+        tp.terminate()
+
+    def __worker(self, item):
+        category, book_name_no_tail, book_url = item
+        print("Start downloading intro page: " + book_url)
+        book_output_dir = "/".join([output_dir, category, book_name_no_tail])
+        self.__prepare_dir(book_output_dir)
+        lock = Lock(book_output_dir)
+        ok = True
+        if not lock.is_intro_locked():
+            try:
                 ipe = IntroPageExtractor(self.s, book_url)
-                self.save_cover_images(book_output_dir, ipe.get_cover_images())
-                self.save_meta(book_output_dir, ipe.get_meta())
-                self.save_description(book_output_dir, ipe.get_description())
-                if not ipe.is_audio_available():
-                    lock.lock_audio()
-                    self.save_no_audio_note(book_output_dir)
-                    print(book_output_dir + " No audio, locked")
-                lock.lock_intro()
-            else:
-                print(book_output_dir + " skipped")
+                try:
+                    self.save_cover_images(book_output_dir, ipe.get_cover_images())
+                    self.save_meta(book_output_dir, ipe.get_meta())
+                    self.save_description(book_output_dir, ipe.get_description())
+                    lock.lock_intro()
+                    if not ipe.is_audio_available():
+                        lock.lock_audio()
+                        self.save_no_audio_note(book_output_dir)
+                        print(book_output_dir + " No audio, locked")
+                except:
+                    lock.unlock_intro()
+                    ok = False
+            except:
+                lock.unlock_intro()
+                ok = False
+        else:
+            print(book_output_dir + " skipped")
+        return ok, book_output_dir
 
     def save_cover_images(self, book_output_dir, data):
         url1, url2 = data
@@ -69,8 +90,8 @@ class IntroPagesDownloader:
 
         tp = ThreadPool(2)
         result = tp.imap_unordered(self.downloader.download_file, items)
-        for i in result:
-            print(i + " downloaded")
+        for file_path in result:
+            print(file_path + " downloaded")
         tp.terminate()
 
     def save_meta(self, book_output_dir, data):
@@ -102,28 +123,48 @@ class ListenPagesDownloader:
         pathlib.Path(dir_path).mkdir(parents=True, exist_ok=True)
 
     def download(self):
-        for item in self.items:
-            category, book_name_no_tail, book_url = item
-            print("Start downloading listen page: " + book_url)
-            book_output_dir = "/".join([output_dir, category, book_name_no_tail])
-            self.__prepare_dir(book_output_dir)
+        tp = ThreadPool(5)
+        result = tp.imap_unordered(self.__worker, self.items)
+        for item in result:
+            ok, book_output_dir = item
+            if not ok:
+                l = Log()
+                l.write_error("Listen: " + book_output_dir + '\n')
+        tp.terminate()
 
-            lock = Lock(book_output_dir)
+    def __worker(self, item):
+        category, book_name_no_tail, book_url = item
+        print("Start downloading listen page: " + book_url)
+        book_output_dir = "/".join([output_dir, category, book_name_no_tail])
+        self.__prepare_dir(book_output_dir)
 
-            is_audio_locked = lock.is_audio_locked()
-            is_markup_locked = lock.is_markup_locked()
+        lock = Lock(book_output_dir)
 
-            if is_audio_locked and is_markup_locked:
-                print( book_output_dir + " skipped")
-            else:
+        is_audio_locked = lock.is_audio_locked()
+        is_markup_locked = lock.is_markup_locked()
+        ok = True
+        if is_audio_locked and is_markup_locked:
+            print(book_output_dir + " skipped")
+        else:
+            try:
                 lpe = ListenPageExtractor(self.s, book_url)
                 if not is_audio_locked:
-                    self.__save_audio(book_output_dir, lpe.get_audio_items(), lock)
-                    lock.lock_audio()
-                if not is_markup_locked :
+                    try:
+                        self.__save_audio(book_output_dir, lpe.get_audio_items(), lock)
+                        lock.lock_audio()
+                    except:
+                        ok = False
+                        lock.unlock_audio()
+                        lock.unlock_markup()
+                if not is_markup_locked:
                     self.__save_html(book_output_dir, lpe.get_html_data())
                     self.__save_html_per_chapter(book_output_dir, lpe.get_html_data_per_chapter())
                     lock.lock_markup()
+            except:
+                lock.unlock_audio()
+                lock.unlock_markup()
+                ok = False
+        return ok, book_output_dir
 
     def __save_html(self, book_output_dir, content):
         file_path = '/'.join([book_output_dir, 'README.md'])

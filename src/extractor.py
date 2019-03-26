@@ -217,7 +217,7 @@ class ListenPageExtractor:
         for chapter in self.soup.select('.chapter.chapter'):
             for tag in chapter.select('div'):
                 tag.replaceWithChildren()
-            content += chapter.prettify()
+            content += "\n" + chapter.prettify()
         return md(content)
 
     def get_html_data_per_chapter(self):
