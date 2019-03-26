@@ -4,6 +4,8 @@ from multiprocessing.pool import ThreadPool
 import pickle
 import os
 from markdownify import markdownify as md
+from requests import RequestException
+import pypandoc
 
 
 class BookUrlExtractor:
@@ -192,10 +194,21 @@ class ListenPageExtractor:
             'Referer': self.url,
             'User-Agent': ' '.join(user_agent)
         }
-        r = self.s.get(audio_endpoint, headers=headers)
-        j = r.json()
-        return file_name, j['url']
+        try:
+            r = self.s.get(audio_endpoint, headers=headers)
+            j = r.json()
+            return True, file_name, j['url']
+        except RequestException:
+            return False, file_name, ''
 
+    '''
+    Get list of
+    tuple (
+    is_ok: True | False
+    file_name: the file name to save as
+    audio_url: the audio url signed
+    )
+    '''
     def get_audio_items(self):
         book_id = self.__get_id()
         items = []
@@ -208,24 +221,30 @@ class ListenPageExtractor:
         result = tp.imap_unordered(self.__get_audio_url, items)
         audio_items = []
         for audio_item in result:
-            audio_items.append(audio_item)
+            ok, file_name, url = audio_item
+            if not ok:
+                return False, []
+            audio_items.append((file_name, url))
         tp.terminate()
-        return audio_items
+        return True, audio_items
 
     def get_html_data(self):
-        content = ''
-        for chapter in self.soup.select('.chapter.chapter'):
-            for tag in chapter.select('div'):
-                tag.replaceWithChildren()
-            content += "\n" + chapter.prettify()
-        return md(content)
+        chapters = self.soup.select('.reader__container__content')[0]
+        for tag in chapters.select('div.reader__container__buttons'):
+            tag.decompose()
+        for h1 in chapters.select('h1'):
+            h1.name = 'h3'
+        return pypandoc.convert_text(chapters, 'md', 'html')
 
     def get_html_data_per_chapter(self):
         data = []
         for chapter in self.soup.select('.chapter.chapter'):
+            chapter.name = 'article'
+            for h1 in chapter.select('h1'):
+                h1.name = 'h3'
             for tag in chapter.select('div'):
                 tag.replaceWithChildren()
-            content = md(chapter.prettify())
+            content = pypandoc.convert_text(chapter, 'md', 'html')
             chapter_number = chapter['data-chapterno']
             file_name = chapter_number + '.md'
             data.append((file_name, content))
