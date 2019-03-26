@@ -1,6 +1,5 @@
 import pathlib
 # import os
-from requests import RequestException
 from src.extractor import IntroPageExtractor, ListenPageExtractor
 from src.lock import *
 from config import output_dir
@@ -47,8 +46,8 @@ class IntroPagesDownloader:
         for item in result:
             ok, book_output_dir = item
             if not ok:
-                l = Log()
-                l.write_error("Intro: " + book_output_dir + '\n')
+                logger = Log()
+                logger.write_error("Intro: " + book_output_dir + '\n')
         tp.terminate()
 
     def __worker(self, item):
@@ -62,7 +61,7 @@ class IntroPagesDownloader:
             try:
                 ipe = IntroPageExtractor(self.s, book_url)
                 try:
-                    self.save_cover_images(book_output_dir, ipe.get_cover_images())
+                    self.save_cover_images(book_output_dir, ipe.get_cover_images(), lock)
                     self.save_meta(book_output_dir, ipe.get_meta())
                     self.save_description(book_output_dir, ipe.get_description())
                     lock.lock_intro()
@@ -80,7 +79,7 @@ class IntroPagesDownloader:
             print(book_output_dir + " skipped")
         return ok, book_output_dir
 
-    def save_cover_images(self, book_output_dir, data):
+    def save_cover_images(self, book_output_dir, data, lock):
         url1, url2 = data
 
         items = [
@@ -88,11 +87,11 @@ class IntroPagesDownloader:
             ('/'.join([book_output_dir, '250.jpg']), url2)
         ]
 
-        tp = ThreadPool(2)
-        result = tp.imap_unordered(self.downloader.download_file, items)
-        for file_path in result:
-            print(file_path + " downloaded")
-        tp.terminate()
+        for item in items:
+            try:
+                self.downloader.download_file(item)
+            except:
+                lock.unlock_intro()
 
     def save_meta(self, book_output_dir, data):
         title, subtitle, author, time_to_read = data
@@ -123,14 +122,11 @@ class ListenPagesDownloader:
         pathlib.Path(dir_path).mkdir(parents=True, exist_ok=True)
 
     def download(self):
-        tp = ThreadPool(5)
-        result = tp.imap_unordered(self.__worker, self.items)
-        for item in result:
-            ok, book_output_dir = item
+        for item in self.items:
+            ok, book_output_dir = self.__worker(item)
             if not ok:
-                l = Log()
-                l.write_error("Listen: " + book_output_dir + '\n')
-        tp.terminate()
+                logger = Log()
+                logger.write_error("Listen: " + book_output_dir + '\n')
 
     def __worker(self, item):
         category, book_name_no_tail, book_url = item
